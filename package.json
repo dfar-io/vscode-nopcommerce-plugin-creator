@@ -1,6 +1,7 @@
 {
 	"name": "nopcommerce-plugin-creator",
-	"displayName": "NopCommerce-Plugin-Creator",
+	"displayName": "NopCommerce Plugin Creator",
+	"publisher": "dfar",
 	"description": "Provides templates for creating NopCommerce plugins",
 	"version": "0.0.1",
 	"engines": {
