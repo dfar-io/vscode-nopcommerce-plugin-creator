@@ -45,6 +45,16 @@ export function activate(context: vscode.ExtensionContext) {
 		placeHolder: "(Description)"
 	}
 
+	const ScaffoldPluginSettings = 'Scaffold Plugin Settings';
+	const extras = [
+		ScaffoldPluginSettings
+	]
+
+	const extraOptions: vscode.QuickPickOptions = {
+		placeHolder: "Select Plugin Extras (can pick multiple)",
+		canPickMany: true
+	}
+
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
@@ -73,64 +83,79 @@ export function activate(context: vscode.ExtensionContext) {
 
 							vscode.window.showInputBox(descriptionOptions).then(description => {
 								if (!description || description == '') return;
-							
-								const pluginName = `Nop.Plugin.${group}.${name}`;
-								const workspaceFolders = vscode.workspace.workspaceFolders;
-								if (workspaceFolders == undefined) {
-									return;
-								}
-								
-								const basePath = workspaceFolders[0].uri.path;
-								const pluginPath = `${workspaceFolders[0].uri.path}/Plugins/${pluginName}`;
 
-								fs.mkdirSync(pluginPath);
-								createPluginJson(
-									pluginPath,
-									group,
-									name,
-									friendlyName,
-									author,
-									description
-								);
-								createOmnisharpJson(pluginPath);
-								createCsproj(
-									pluginPath,
-									group,
-									name,
-									author,
-									true // for now, should be selectable
-								);
-								if (true) { // if include settings
-									createSettingsFile(
+								vscode.window.showQuickPick(extras, extraOptions).then(options => {
+									const includePluginSettings = options?.includes(ScaffoldPluginSettings) ?? false;
+
+									const pluginName = `Nop.Plugin.${group}.${name}`;
+									const workspaceFolders = vscode.workspace.workspaceFolders;
+									if (workspaceFolders == undefined) {
+										return;
+									}
+									
+									const basePath = workspaceFolders[0].uri.path;
+									const pluginPath = `${workspaceFolders[0].uri.path}/Plugins/${pluginName}`;
+
+									fs.mkdirSync(pluginPath);
+									createPluginJson(
+										pluginPath,
 										group,
-										name, 
-										pluginPath
+										name,
+										friendlyName,
+										author,
+										description
 									);
-									createConfigModelFile(
+									createOmnisharpJson(pluginPath);
+									createCsproj(
+										pluginPath,
 										group,
 										name,
-										pluginPath
-									)
-									createLocaleFile(
-										group,
-										name,
-										pluginPath
-									)
-									createViews(
-										group,
-										name,
-										pluginPath
-									)
-								}
+										author,
+										includePluginSettings
+									);
+									
+									if (includePluginSettings) {
+										createSettingsFile(
+											group,
+											name, 
+											pluginPath
+										);
+										createConfigModelFile(
+											group,
+											name,
+											pluginPath
+										)
+										createLocaleFile(
+											group,
+											name,
+											pluginPath
+										)
+										createViews(
+											group,
+											name,
+											pluginPath
+										)
+										createController(
+											group,
+											name,
+											pluginPath
+										)
+										createBaseFile(
+											group,
+											name,
+											pluginPath
+										)
+									}
 
-								addPluginToSolution(
-									basePath,
-									pluginPath,
-									group,
-									name
-								);
+									addPluginToSolution(
+										basePath,
+										pluginPath,
+										group,
+										name
+									);
 
-								vscode.window.showInformationMessage("Plugin created.");
+									vscode.window.showInformationMessage("Plugin created.");
+									});
 							});
 						});
 					});
@@ -295,8 +320,8 @@ namespace ${namespace}
 {
 	public class ${className} : ISettings
 	{
-		public string TestString { get; private set; }
-		public bool TestBoolean { get; private set; }
+		public string TestString { get; set; }
+		public bool TestBoolean { get; set; }
 	
 		public static ${className} FromModel(ConfigurationModel model)
 		{
@@ -419,7 +444,7 @@ function createViews(
 	<div class="panel-group">
 		<div class="panel panel-default">
 			<div class="panel-body">
-				<div class="form-group">
+				<div class="form-group row">
 					<div class="col-md-3">
 						<nop-label asp-for="TestString" />
 					</div>
@@ -428,13 +453,18 @@ function createViews(
 						<span asp-validation-for="TestString"></span>
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group row">
 					<div class="col-md-3">
 						<nop-label asp-for="TestBoolean" />
 					</div>
 					<div class="col-md-9">
 						<nop-editor asp-for="TestBoolean" />
 						<span asp-validation-for="TestBoolean"></span>
+					</div>
+				</div>
+				<div class="form-group row">
+					<div class="col-md-9 col-md-offset-3">
+						<input type="submit" name="save" class="btn btn-primary" value="@T("Admin.Common.Save")" />
 					</div>
 				</div>
 			</div>
@@ -459,6 +489,172 @@ function createViews(
 			if (err) throw err;
 		}
 	);  
+}
+
+function createController(
+	group : string,
+	name: string,
+	path : string
+) {
+	const className = `${name}Controller`
+	const settingsName = `${name}Settings`
+	const contents = `using Microsoft.AspNetCore.Mvc;
+using Nop.Plugin.${group}.${name}.Models;
+using Nop.Services.Configuration;
+using Nop.Services.Localization;
+using Nop.Services.Messages;
+using Nop.Web.Framework;
+using Nop.Web.Framework.Controllers;
+using Nop.Web.Framework.Mvc.Filters;
+
+namespace Nop.Plugin.${group}.${name}.Controllers
+{
+	[AuthorizeAdmin]
+	[Area(AreaNames.Admin)]
+	[AutoValidateAntiforgeryToken]
+	public class ${className} : BasePluginController
+	{
+		private readonly ${settingsName} _settings;
+		private readonly ISettingService _settingService;
+		private readonly ILocalizationService _localizationService;
+		private readonly INotificationService _notificationService;
+	
+		public ${className}(
+			${settingsName} settings,
+			ISettingService settingService,
+			ILocalizationService localizationService,
+			INotificationService notificationService
+		)
+		{
+			_settings = settings;
+			_settingService = settingService;
+			_localizationService = localizationService;
+			_notificationService = notificationService;
+		}
+	
+		public IActionResult Configure()
+		{
+			return View(
+				"~/Plugins/${group}.${name}/Views/Configure.cshtml",
+				_settings.ToModel());
+		}
+	
+		[HttpPost]
+		public IActionResult Configure(ConfigurationModel model)
+		{
+			if (!ModelState.IsValid)
+			{
+				return Configure();
+			}
+
+			_settingService.SaveSetting(${settingsName}.FromModel(model));
+
+			_notificationService.SuccessNotification(
+				_localizationService.GetResource("Admin.Plugins.Saved")
+			);
+
+			return Configure();
+		}
+	}
+}
+	`;
+
+	fs.mkdirSync(
+		`${path}/Controllers`
+	);
+	fs.writeFile(
+		`${path}/Controllers/${name}Controller.cs`,
+		contents,
+		function (err: any) {
+			if (err) throw err;
+		}
+	);
+}
+
+function createBaseFile(
+	group : string,
+	name: string,
+	path : string
+) {
+	const className = `${name}Plugin`;
+	const localeName = `${name}Locales`;
+	const contents = `using System.Collections.Generic;
+using Nop.Core;
+using Nop.Services.Configuration;
+using Nop.Services.Localization;
+using Nop.Services.Plugins;
+
+namespace Nop.Plugin.${group}.${name}
+{
+	// make sure to set a type of plugin to interface against
+	public class ${className} : BasePlugin
+	{
+		private readonly IWebHelper _webHelper;
+		private readonly ILocalizationService _localizationService;
+		private readonly ISettingService _settingService;
+	
+		public ${className}(
+			IWebHelper webHelper,
+			ILocalizationService localizationService,
+			ISettingService settingService
+		)
+		{
+			_webHelper = webHelper;
+			_localizationService = localizationService;
+			_settingService = settingService;
+		}
+	
+		public override string GetConfigurationPageUrl()
+		{
+			return $"{_webHelper.GetStoreLocation()}Admin/${name}/Configure";
+		}
+	
+		public override void Install()
+		{
+			UpdatePluginLocaleResources();
+
+			base.Install();
+		}
+	
+		public override void Uninstall()
+		{
+			_localizationService.DeletePluginLocaleResources(${localeName}.Base);
+			_settingService.DeleteSetting<${name}Settings>();
+
+			base.Uninstall();
+		}
+	
+		public override void Update(string oldVersion, string currentVersion)
+		{
+			UpdatePluginLocaleResources();
+
+			base.Update(oldVersion, currentVersion);
+		}
+
+		private void UpdatePluginLocaleResources()
+		{
+			_localizationService.AddPluginLocaleResource(
+				new Dictionary<string, string>
+				{
+					[${localeName}.TestString] = "Test String",
+					[${localeName}.TestStringHint] = "Holds the value of a string.",
+					[${localeName}.TestBoolean] = "Test Boolean",
+					[${localeName}.TestBooleanHint] = "Holds the value of a boolean."
+				}
+			);
+		}
+	}
+}
+	
+	`;
+
+	fs.writeFile(
+		`${path}/${name}Plugin.cs`,
+		contents,
+		function (err: any) {
+			if (err) throw err;
+		}
+	);
 }
 
 // this method is called when your extension is deactivated
