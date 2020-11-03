@@ -97,8 +97,32 @@ export function activate(context: vscode.ExtensionContext) {
 									pluginPath,
 									group,
 									name,
-									author
+									author,
+									true // for now, should be selectable
 								);
+								if (true) { // if include settings
+									createSettingsFile(
+										group,
+										name, 
+										pluginPath
+									);
+									createConfigModelFile(
+										group,
+										name,
+										pluginPath
+									)
+									createLocaleFile(
+										group,
+										name,
+										pluginPath
+									)
+									createViews(
+										group,
+										name,
+										pluginPath
+									)
+								}
+
 								addPluginToSolution(
 									basePath,
 									pluginPath,
@@ -170,7 +194,8 @@ function createCsproj(
 	path: string,
 	group: string,
 	name: string,
-	author: string
+	author: string,
+	includeSettings: boolean
 ) {
 	const contents = `
 <Project Sdk="Microsoft.NET.Sdk">
@@ -189,6 +214,10 @@ function createCsproj(
 		<!-- add a approximately 50x50 logo to plugin root and uncomment this
 		<None Remove="logo.png" />
 		-->
+		${includeSettings ? `
+		<None Remove="Views\\Configure.cshtml" />
+    	<None Remove="Views\\_ViewImports.cshtml" />
+		` : ``}
 	</ItemGroup>
 
 	<ItemGroup>
@@ -200,10 +229,21 @@ function createCsproj(
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
 		-->
+		${includeSettings ? `
+		<Content Include="Views\\Configure.cshtml">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Views\\_ViewImports.cshtml">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		` : ``}
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\\..\\Presentation\\Nop.Web.Framework\\Nop.Web.Framework.csproj" />
+		${includeSettings ? `
+		<ProjectReference Include="..\\..\\Libraries\\Nop.Core\\Nop.Core.csproj" />
+		` : ``}
 		<ClearPluginAssemblies Include="$(MSBuildProjectDirectory)\\..\\..\\Build\\ClearPluginAssemblies.proj" />
 	</ItemGroup>
 	<!-- This target execute after "Build" target -->
@@ -239,6 +279,186 @@ function addPluginToSolution(
 			throw err;
 		}
 	});
+}
+
+function createSettingsFile(
+	group : string,
+	name : string,
+	path : string
+) {
+	const namespace = `Nop.Plugin.${group}.${name}`;
+	const className = `${name}Settings`;
+	const contents = `using Nop.Core.Configuration;
+using ${namespace}.Models;
+
+namespace ${namespace}
+{
+	public class ${className} : ISettings
+	{
+		public string TestString { get; private set; }
+		public bool TestBoolean { get; private set; }
+	
+		public static ${className} FromModel(ConfigurationModel model)
+		{
+			return new ${className}()
+			{
+				TestString = model.TestString,
+				TestBoolean = model.TestBoolean
+			};
+		}
+
+		public ConfigurationModel ToModel()
+		{
+			return new ConfigurationModel
+			{
+				TestString = TestString,
+				TestBoolean = TestBoolean
+			};
+		}
+	}
+}
+	`;
+
+	fs.writeFile(
+		`${path}/${name}Settings.cs`,
+		contents,
+		function (err: any) {
+			if (err) throw err;
+		}
+	);  
+}
+
+function createConfigModelFile(
+	group : string,
+	name : string,
+	path : string
+) {
+	const localeClassName = `${name}Locales`;
+	const contents = `using Nop.Web.Framework.Mvc.ModelBinding;
+
+namespace Nop.Plugin.${group}.${name}.Models
+{
+	public class ConfigurationModel
+	{
+		[NopResourceDisplayName(${localeClassName}.TestString)]
+		public string TestString { get; set; }
+
+		[NopResourceDisplayName(${localeClassName}.TestBoolean)]
+		public bool TestBoolean { get; set; }
+	}
+}	
+`;
+
+	fs.mkdirSync(
+		`${path}/Models`
+	);
+	fs.writeFile(
+		`${path}/Models/ConfigModel.cs`,
+		contents,
+		function (err: any) {
+			if (err) throw err;
+		}
+	);  
+}
+
+function createLocaleFile(
+	group : string,
+	name : string,
+	path : string
+) {
+	const contents = `namespace Nop.Plugin.${group}.${name}
+{
+	public class ${name}Locales
+	{
+		public const string Base = "Plugins.${group}.${name}.Fields.";
+
+        public const string TestString = Base + ".TestString";
+        public const string TestStringHint = TestString + ".Hint";
+
+        public const string TestBoolean = Base + ".TestBoolean";
+        public const string TestBooleanHint = TestBoolean + ".Hint";
+	}
+}	
+`;
+
+	fs.writeFile(
+		`${path}/${name}Locales.cs`,
+		contents,
+		function (err: any) {
+			if (err) throw err;
+		}
+	);  
+}
+
+function createViews(
+	group : string,
+	name: string,
+	path : string
+) {
+	// ViewImports
+	const viewImportsContents = `@inherits Nop.Web.Framework.Mvc.Razor.NopRazorPage<TModel>
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@addTagHelper *, Nop.Web.Framework
+	
+@using Microsoft.AspNetCore.Mvc.ViewFeatures
+@using Nop.Web.Framework.UI
+@using Nop.Web.Framework.Extensions
+@using System.Text.Encodings.Web	
+`;
+	
+	// Configure
+	const configureContents = `@model ConfigurationModel
+
+@using Nop.Plugin.${group}.${name}.Models
+	
+@{
+	Layout = "_ConfigurePlugin";
+}
+	
+<form asp-controller="${name}" asp-action="Configure" method="post">
+	<div class="panel-group">
+		<div class="panel panel-default">
+			<div class="panel-body">
+				<div class="form-group">
+					<div class="col-md-3">
+						<nop-label asp-for="TestString" />
+					</div>
+					<div class="col-md-9">
+						<nop-editor asp-for="TestString" />
+						<span asp-validation-for="TestString"></span>
+					</div>
+				</div>
+				<div class="form-group">
+					<div class="col-md-3">
+						<nop-label asp-for="TestBoolean" />
+					</div>
+					<div class="col-md-9">
+						<nop-editor asp-for="TestBoolean" />
+						<span asp-validation-for="TestBoolean"></span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</form>`;
+
+	fs.mkdirSync(
+		`${path}/Views`
+	);
+	fs.writeFile(
+		`${path}/Views/_ViewImports.cshtml`,
+		viewImportsContents,
+		function (err: any) {
+			if (err) throw err;
+		}
+	);
+	fs.writeFile(
+		`${path}/Views/Configure.cshtml`,
+		configureContents,
+		function (err: any) {
+			if (err) throw err;
+		}
+	);  
 }
 
 // this method is called when your extension is deactivated
