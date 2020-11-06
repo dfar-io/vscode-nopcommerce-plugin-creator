@@ -1,6 +1,9 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { BaseFileCreator } from './fileCreators/baseFileCreator';
+import { PluginType } from './pluginTypes/pluginType';
+import { PluginTypeFactory } from './pluginTypes/pluginTypeFactory';
 
 const fs = require('fs');
 const cp = require('child_process')
@@ -11,8 +14,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const pluginTypes = [
 		'DiscountRules',
-		'ExternalAuth',
 		'ExchangeRate',
+		'ExternalAuth',
 		'Misc',
 		'Payments',
 		'Pickup',
@@ -69,93 +72,115 @@ export function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			vscode.window.showQuickPick(pluginTypes, typeOptions).then(group => {
-				if (!group) return;
-				
-				vscode.window.showInputBox(nameOptions).then(name => {
-					if (!name || name == '') return;
+			vscode.workspace.findFiles("Libraries/Nop.Core/NopVersion.cs", null, 1).then(nopVersionFile => {
+				if (nopVersionFile.length == 0) {
+					vscode.window.showErrorMessage(
+						`Unable to determine current NopCommerce version.`
+					);
+					return;
+				}
 
-					vscode.window.showInputBox(friendlyNameOptions).then(friendlyName => {
-						if (!friendlyName || friendlyName == '') return;
+				const workspaceFolders = vscode.workspace.workspaceFolders;
+										if (workspaceFolders == undefined) {
+											return;
+										}
+				const basePath = workspaceFolders[0].uri.path;
+				let nopVersion: string;
 
-						vscode.window.showInputBox(authorOptions).then(author => {
-							if (!author || author == '') return;
+				fs.readFile(`${basePath}/Libraries/Nop.Core/NopVersion.cs`, 'utf8' , (err: any, data: any) => {
+					if (err) {
+					  return
+					}
+					const indexString = "CURRENT_VERSION = \"";
+					const startIndex = data.indexOf(indexString) + indexString.length;
+					nopVersion = data.substring(startIndex, startIndex + 4);
+				  }
+				)
 
-							vscode.window.showInputBox(descriptionOptions).then(description => {
-								if (!description || description == '') return;
-
-								vscode.window.showQuickPick(extras, extraOptions).then(options => {
-									const includePluginSettings = options?.includes(ScaffoldPluginSettings) ?? false;
-
-									const pluginName = `Nop.Plugin.${group}.${name}`;
-									const workspaceFolders = vscode.workspace.workspaceFolders;
-									if (workspaceFolders == undefined) {
-										return;
-									}
-									
-									const basePath = workspaceFolders[0].uri.path;
-									const pluginPath = `${workspaceFolders[0].uri.path}/Plugins/${pluginName}`;
-
-									fs.mkdirSync(pluginPath);
-									createPluginJson(
-										pluginPath,
-										group,
-										name,
-										friendlyName,
-										author,
-										description
-									);
-									createOmnisharpJson(pluginPath);
-									createCsproj(
-										pluginPath,
-										group,
-										name,
-										author,
-										includePluginSettings
-									);
-									
-									if (includePluginSettings) {
-										createSettingsFile(
+				vscode.window.showQuickPick(pluginTypes, typeOptions).then(group => {
+					if (!group) return;
+	
+					let pluginType: PluginType = PluginTypeFactory.getPluginType(group);
+					
+					vscode.window.showInputBox(nameOptions).then(name => {
+						if (!name || name == '') return;
+	
+						vscode.window.showInputBox(friendlyNameOptions).then(friendlyName => {
+							if (!friendlyName || friendlyName == '') return;
+	
+							vscode.window.showInputBox(authorOptions).then(author => {
+								if (!author || author == '') return;
+	
+								vscode.window.showInputBox(descriptionOptions).then(description => {
+									if (!description || description == '') return;
+	
+									vscode.window.showQuickPick(extras, extraOptions).then(options => {
+										const includePluginSettings = options?.includes(ScaffoldPluginSettings) ?? false;
+	
+										const pluginName = `Nop.Plugin.${group}.${name}`;
+										const pluginPath = `${workspaceFolders[0].uri.path}/Plugins/${pluginName}`;
+	
+										fs.mkdirSync(pluginPath);
+										createPluginJson(
+											pluginPath,
 											group,
-											name, 
-											pluginPath
+											name,
+											friendlyName,
+											author,
+											description,
+											nopVersion
 										);
-										createConfigModelFile(
+										createOmnisharpJson(pluginPath);
+										createCsproj(
+											pluginPath,
 											group,
 											name,
-											pluginPath
-										)
-										createLocaleFile(
+											author,
+											includePluginSettings
+										);
+										
+										if (includePluginSettings) {
+											createSettingsFile(
+												group,
+												name, 
+												pluginPath
+											);
+											createConfigModelFile(
+												group,
+												name,
+												pluginPath
+											)
+											createLocaleFile(
+												group,
+												name,
+												pluginPath
+											)
+											createViews(
+												group,
+												name,
+												pluginPath
+											)
+											createController(
+												group,
+												name,
+												pluginPath
+											)
+										}
+										
+										new BaseFileCreator(
+											pluginType, pluginPath, name, includePluginSettings
+										).createFile();
+	
+										addPluginToSolution(
+											basePath,
+											pluginPath,
 											group,
-											name,
-											pluginPath
-										)
-										createViews(
-											group,
-											name,
-											pluginPath
-										)
-										createController(
-											group,
-											name,
-											pluginPath
-										)
-										createBaseFile(
-											group,
-											name,
-											pluginPath
-										)
-									}
-
-									addPluginToSolution(
-										basePath,
-										pluginPath,
-										group,
-										name
-									);
-
-									vscode.window.showInformationMessage("Plugin created.");
-									});
+											name
+										);
+	
+										vscode.window.showInformationMessage("Plugin created.");
+										});
+								});
 							});
 						});
 					});
@@ -173,14 +198,15 @@ function createPluginJson(
 	name: string,
 	friendlyName: string,
 	author: string,
-	description: string
+	description: string,
+	nopVersion: string
 ) {
 	const contents = {
 		"Group": group,
 		"FriendlyName": friendlyName,
 		"SystemName": `${group}.${name}`,
 		"Version": "1.0.0",
-		"SupportedVersions": [ "4.30" ],
+		"SupportedVersions": [ `${nopVersion}` ],
 		"Author": author,
 		"DisplayOrder": -1,
 		"FileName": `Nop.Plugin.${group}.${name}.dll`,
@@ -564,92 +590,6 @@ namespace Nop.Plugin.${group}.${name}.Controllers
 	);
 	fs.writeFile(
 		`${path}/Controllers/${name}Controller.cs`,
-		contents,
-		function (err: any) {
-			if (err) throw err;
-		}
-	);
-}
-
-function createBaseFile(
-	group : string,
-	name: string,
-	path : string
-) {
-	const className = `${name}Plugin`;
-	const localeName = `${name}Locales`;
-	const contents = `using System.Collections.Generic;
-using Nop.Core;
-using Nop.Services.Configuration;
-using Nop.Services.Localization;
-using Nop.Services.Plugins;
-
-namespace Nop.Plugin.${group}.${name}
-{
-	// make sure to set a type of plugin to interface against
-	public class ${className} : BasePlugin
-	{
-		private readonly IWebHelper _webHelper;
-		private readonly ILocalizationService _localizationService;
-		private readonly ISettingService _settingService;
-	
-		public ${className}(
-			IWebHelper webHelper,
-			ILocalizationService localizationService,
-			ISettingService settingService
-		)
-		{
-			_webHelper = webHelper;
-			_localizationService = localizationService;
-			_settingService = settingService;
-		}
-	
-		public override string GetConfigurationPageUrl()
-		{
-			return $"{_webHelper.GetStoreLocation()}Admin/${name}/Configure";
-		}
-	
-		public override void Install()
-		{
-			UpdatePluginLocaleResources();
-
-			base.Install();
-		}
-	
-		public override void Uninstall()
-		{
-			_localizationService.DeletePluginLocaleResources(${localeName}.Base);
-			_settingService.DeleteSetting<${name}Settings>();
-
-			base.Uninstall();
-		}
-	
-		public override void Update(string oldVersion, string currentVersion)
-		{
-			UpdatePluginLocaleResources();
-
-			base.Update(oldVersion, currentVersion);
-		}
-
-		private void UpdatePluginLocaleResources()
-		{
-			_localizationService.AddPluginLocaleResource(
-				new Dictionary<string, string>
-				{
-					[${localeName}.TestString] = "Test String",
-					[${localeName}.TestStringHint] = "Holds the value of a string.",
-					[${localeName}.TestBoolean] = "Test Boolean",
-					[${localeName}.TestBooleanHint] = "Holds the value of a boolean."
-				}
-			);
-		}
-	}
-}
-	
-	`;
-
-	fs.writeFile(
-		`${path}/${name}Plugin.cs`,
 		contents,
 		function (err: any) {
 			if (err) throw err;
