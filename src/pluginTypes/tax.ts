@@ -6,7 +6,8 @@ export class Tax extends PluginType {
             "Tax",
             "TaxProvider",
             "Nop.Services.Tax",
-            "ITaxProvider"
+            "ITaxProvider",
+            "Tax providers"
         );
     }
 

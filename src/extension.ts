@@ -114,72 +114,75 @@ export function activate(context: vscode.ExtensionContext) {
 								vscode.window.showInputBox(descriptionOptions).then(description => {
 									if (!description || description == '') return;
 	
-									vscode.window.showQuickPick(extras, extraOptions).then(options => {
-										const includePluginSettings = options?.includes(ScaffoldPluginSettings) ?? false;
+									// const includePluginSettings = options?.includes(ScaffoldPluginSettings) ?? false;
 	
-										const pluginName = `Nop.Plugin.${group}.${name}`;
-										const pluginPath = `${workspaceFolders[0].uri.path}/Plugins/${pluginName}`;
+									const pluginName = `Nop.Plugin.${group}.${name}`;
+									const pluginPath = `${workspaceFolders[0].uri.path}/Plugins/${pluginName}`;
 	
-										fs.mkdirSync(pluginPath);
-										createPluginJson(
-											pluginPath,
-											group,
-											name,
-											friendlyName,
-											author,
-											description,
-											nopVersion
-										);
-										createOmnisharpJson(pluginPath);
-										createCsproj(
-											pluginPath,
-											group,
-											name,
-											author,
-											includePluginSettings
-										);
+									fs.mkdirSync(pluginPath);
+									createPluginJson(
+										pluginPath,
+										pluginType,
+										name,
+										friendlyName,
+										author,
+										description,
+										nopVersion
+									);
+									createOmnisharpJson(pluginPath);
+									createCsproj(
+										pluginPath,
+										group,
+										name,
+										author,
+										false // include plugin settings
+									);
+									
+									// skipping for now
+									// if (false) {
+									// 	createSettingsFile(
+									// 		group,
+									// 		name, 
+									// 		pluginPath
+									// 	);
+									// 	createConfigModelFile(
+									// 		group,
+									// 		name,
+									// 		pluginPath
+									// 	)
+									// 	createLocaleFile(
+									// 		group,
+									// 		name,
+									// 		pluginPath
+									// 	)
+									// 	createViews(
+									// 		group,
+									// 		name,
+									// 		pluginPath
+									// 	)
+									// 	createController(
+									// 		group,
+									// 		name,
+									// 		pluginPath
+									// 	)
+									// }
 										
-										if (includePluginSettings) {
-											createSettingsFile(
-												group,
-												name, 
-												pluginPath
-											);
-											createConfigModelFile(
-												group,
-												name,
-												pluginPath
-											)
-											createLocaleFile(
-												group,
-												name,
-												pluginPath
-											)
-											createViews(
-												group,
-												name,
-												pluginPath
-											)
-											createController(
-												group,
-												name,
-												pluginPath
-											)
-										}
-										
-										new BaseFileCreator(
-											pluginType, pluginPath, name, includePluginSettings
-										).createFile();
+									new BaseFileCreator(
+										pluginType, pluginPath, name, false // include plugin settings
+									).createFile();
 	
-										addPluginToSolution(
-											basePath,
-											pluginPath,
-											group,
-											name
-										);
+									addPluginToSolution(
+										basePath,
+										pluginPath,
+										group,
+										name
+									);
 	
-										vscode.window.showInformationMessage("Plugin created.");
-										});
+									vscode.window.showInformationMessage("Plugin created.");
+									
+									// skipping this for now
+									//vscode.window.showQuickPick(extras, extraOptions).then(options => {	
+									//});
 								});
 							});
 						});
@@ -194,7 +197,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 function createPluginJson(
 	path: string,
-	group: string,
+	pluginType: PluginType,
 	name: string,
 	friendlyName: string,
 	author: string,
@@ -202,14 +205,14 @@ function createPluginJson(
 	nopVersion: string
 ) {
 	const contents = {
-		"Group": group,
+		"Group": pluginType.pluginGroupName,
 		"FriendlyName": friendlyName,
-		"SystemName": `${group}.${name}`,
+		"SystemName": `${pluginType.group}.${name}`,
 		"Version": "1.0.0",
 		"SupportedVersions": [ `${nopVersion}` ],
 		"Author": author,
 		"DisplayOrder": -1,
-		"FileName": `Nop.Plugin.${group}.${name}.dll`,
+		"FileName": `Nop.Plugin.${pluginType.group}.${name}.dll`,
 		"Description": description
 	};
 

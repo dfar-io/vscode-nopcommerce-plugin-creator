@@ -6,7 +6,8 @@ export class Misc extends PluginType {
             "Misc",
             "Plugin",
             "Nop.Services.Common",
-            "IMiscPlugin"
+            "IMiscPlugin",
+            "Misc"
         );
     }
 

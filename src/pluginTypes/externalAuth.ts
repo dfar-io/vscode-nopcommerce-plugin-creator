@@ -6,7 +6,8 @@ export class ExternalAuth extends PluginType {
             "ExternalAuth",
             "Plugin",
             "Nop.Services.Authentication.External",
-            "IExternalAuthenticationMethod"
+            "IExternalAuthenticationMethod",
+            "ExternalAuth methods"
         );
     }
 

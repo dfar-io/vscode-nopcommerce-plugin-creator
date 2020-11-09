@@ -6,7 +6,8 @@ export class Widgets extends PluginType {
             "Widgets",
             "Plugin",
             "Nop.Services.Cms",
-            "IWidgetPlugin"
+            "IWidgetPlugin",
+            "Widgets"
         );
     }
 

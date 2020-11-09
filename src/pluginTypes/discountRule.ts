@@ -7,7 +7,8 @@ export class DiscountRule extends PluginType {
             "DiscountRules",
             "DiscountRequirementRule",
             "Nop.Services.Discounts",
-            "IDiscountRequirementRule"
+            "IDiscountRequirementRule",
+            "Discount requirements"
         );
     }
 
@@ -38,6 +39,9 @@ export class DiscountRule extends PluginType {
         /// <returns>URL</returns>
         public string GetConfigurationUrl(int discountId, int? discountRequirementId)
         {
+            // will throw an error when assigning requirement to a discount
+            // until this is implemented, take a look at this for more info:
+            // https://github.com/nopSolutions/nopCommerce/tree/develop/src/Plugins/Nop.Plugin.DiscountRules.CustomerRoles
             throw new NotImplementedException();
         }
 `

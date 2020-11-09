@@ -6,7 +6,8 @@ export class ExchangeRate extends PluginType {
             "ExchangeRate",
             "RateProvider",
             "Nop.Services.Directory",
-            "IExchangeRateProvider"
+            "IExchangeRateProvider",
+            "Exchange rate providers"
         );
     }
 

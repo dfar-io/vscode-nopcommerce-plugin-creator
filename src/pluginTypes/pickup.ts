@@ -6,7 +6,8 @@ export class Pickup extends PluginType {
             "Pickup",
             "Provider",
             "Nop.Services.Shipping.Pickup",
-            "IPickupPointProvider"
+            "IPickupPointProvider",
+            "Pickup points"
         );
     }
 

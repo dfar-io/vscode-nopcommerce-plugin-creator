@@ -6,7 +6,8 @@ export class Shipping extends PluginType {
             "Shipping",
             "ComputationMethod",
             "Nop.Services.Shipping",
-            "IShippingRateComputationMethod"
+            "IShippingRateComputationMethod",
+            "Shipping rate computation"
         );
     }
 

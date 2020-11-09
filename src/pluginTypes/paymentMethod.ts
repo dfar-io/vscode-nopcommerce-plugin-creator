@@ -6,7 +6,8 @@ export class PaymentMethod extends PluginType {
             "Payments",
             "PaymentProcessor",
             "Nop.Services.Payments",
-            "IPaymentMethod"
+            "IPaymentMethod",
+            "Payment methods"
         );
     }
 
