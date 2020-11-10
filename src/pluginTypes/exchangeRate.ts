@@ -12,23 +12,47 @@ export class ExchangeRate extends PluginType {
     }
 
     methods(): string {
-        return `/// <summary>
-        /// Check discount requirement
-        /// </summary>
-        /// <param name="request">Object that contains all information required to check the requirement (Current customer, discount, etc)</param>
-        /// <returns>Result</returns>
-        public DiscountRequirementValidationResult CheckRequirement(DiscountRequirementValidationRequest request)
+        return `public IList<Core.Domain.Directory.ExchangeRate> GetCurrencyLiveRates(string exchangeRateCurrencyCode)
         {
-            if (request == null)
-                throw new ArgumentNullException(nameof(request));
-    
-            //invalid by default
-            var result = new DiscountRequirementValidationResult();
+            if (exchangeRateCurrencyCode == null)
+                throw new ArgumentNullException(nameof(exchangeRateCurrencyCode));
 
-            // custom logic goes here
-    
-            return result;
-        }        
+            //add euro with rate 1
+            var ratesToEuro = new List<Core.Domain.Directory.ExchangeRate>
+            {
+                new Core.Domain.Directory.ExchangeRate
+                {
+                    CurrencyCode = "EUR",
+                    Rate = 1,
+                    UpdatedOn = DateTime.UtcNow
+                }
+            };
+
+            // TODO: generally would make external calls to check rates here
+            // and add rates to ratesToEuro
+
+            //return result for the euro
+            if (exchangeRateCurrencyCode.Equals("eur", StringComparison.InvariantCultureIgnoreCase))
+                return ratesToEuro;
+
+            //use only currencies that are supported
+            var exchangeRateCurrency = ratesToEuro.FirstOrDefault(rate => rate.CurrencyCode.Equals(exchangeRateCurrencyCode, StringComparison.InvariantCultureIgnoreCase));
+            if (exchangeRateCurrency == null)
+                throw new NopException("You can use your exchange rate provider only when the primary exchange rate currency is supported.");
+
+            //return result for the selected (not euro) currency
+            return ratesToEuro.Select(rate => new Core.Domain.Directory.ExchangeRate
+            {
+                CurrencyCode = rate.CurrencyCode,
+                Rate = Math.Round(rate.Rate / exchangeRateCurrency.Rate, 4),
+                UpdatedOn = rate.UpdatedOn
+            }).ToList();
+        }      
 `
+    }
+
+    usingStatement() {
+        return `using ${this.referencingNamespace};
+using System.Linq;`
     }
 }
