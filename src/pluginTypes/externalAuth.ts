@@ -4,7 +4,7 @@ export class ExternalAuth extends PluginType {
     constructor() {
         super(
             "ExternalAuth",
-            "Plugin",
+            "AuthenticationMethod",
             "Nop.Services.Authentication.External",
             "IExternalAuthenticationMethod",
             "ExternalAuth methods"
@@ -13,22 +13,16 @@ export class ExternalAuth extends PluginType {
 
     methods(): string {
         return `/// <summary>
-        /// Check discount requirement
+        /// Gets a name of a view component for displaying plugin in public store
         /// </summary>
-        /// <param name="request">Object that contains all information required to check the requirement (Current customer, discount, etc)</param>
-        /// <returns>Result</returns>
-        public DiscountRequirementValidationResult CheckRequirement(DiscountRequirementValidationRequest request)
+        /// <returns>View component name</returns>
+        public string GetPublicViewComponentName()
         {
-            if (request == null)
-                throw new ArgumentNullException(nameof(request));
-    
-            //invalid by default
-            var result = new DiscountRequirementValidationResult();
-
-            // custom logic goes here
-    
-            return result;
-        }        
+            // This needs to be changed to a valid ViewComponent to allow for
+            // the plugin to work.
+            // check out https://github.com/nopSolutions/nopCommerce/tree/develop/src/Plugins/Nop.Plugin.ExternalAuth.Facebook
+            return "ViewComponentName";
+        }     
 `
     }
 }
