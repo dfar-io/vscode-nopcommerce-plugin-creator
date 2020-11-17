@@ -91,9 +91,14 @@ export function activate(context: vscode.ExtensionContext) {
 					if (err) {
 					  return
 					}
-					const indexString = "CURRENT_VERSION = \"";
-					const startIndex = data.indexOf(indexString) + indexString.length;
-					nopVersion = data.substring(startIndex, startIndex + 4);
+
+					if (data.includes("4.40")) {
+						nopVersion = "4.40";
+					} else if (data.includes("4.30")) {
+						nopVersion = "4.30";
+					} else {
+						nopVersion = "";
+					}
 				  }
 				)
 
